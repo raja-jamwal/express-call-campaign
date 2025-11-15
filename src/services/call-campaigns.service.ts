@@ -1,7 +1,9 @@
 import { callCampaignRepository } from '../repositories/call-campaigns.repository';
 import { callScheduleRepository } from '../repositories/call-schedules.repository';
 import { userRepository } from '../repositories/users.repository';
+import { phoneNumberRepository } from '../repositories/phone-numbers.repository';
 import { prisma } from '../lib/prisma';
+import { getNextValidScheduleDate } from '../lib/schedule_utils';
 
 // Custom error classes
 export class CallCampaignNotFoundError extends Error {
@@ -22,6 +24,27 @@ export class UserNotFoundError extends Error {
   constructor(id: string) {
     super(`User with id ${id} not found`);
     this.name = 'UserNotFoundError';
+  }
+}
+
+export class PhoneNumberNotFoundError extends Error {
+  constructor(id: string) {
+    super(`Phone number with id ${id} not found`);
+    this.name = 'PhoneNumberNotFoundError';
+  }
+}
+
+export class CallTaskAlreadyExistsError extends Error {
+  constructor(campaignId: string, phoneNumberId: string) {
+    super(`Call task already exists for campaign ${campaignId} and phone number ${phoneNumberId}`);
+    this.name = 'CallTaskAlreadyExistsError';
+  }
+}
+
+export class InvalidScheduleError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'InvalidScheduleError';
   }
 }
 
@@ -179,6 +202,76 @@ export const callCampaignService = {
 
     // Fallback
     return 'paused';
+  },
+
+  async addPhoneNumberToCampaign(campaignId: string, phoneNumberId: string) {
+    // Get the campaign
+    const campaign = await callCampaignRepository.findById(campaignId);
+    if (!campaign) {
+      throw new CallCampaignNotFoundError(campaignId);
+    }
+
+    // Get the phone number
+    const phoneNumber = await phoneNumberRepository.findById(phoneNumberId);
+    if (!phoneNumber) {
+      throw new PhoneNumberNotFoundError(phoneNumberId);
+    }
+
+    // Check if phone number belongs to the same user as the campaign
+    if (phoneNumber.user_id !== campaign.user_id) {
+      throw new Error('Phone number does not belong to the campaign owner');
+    }
+
+    // Check if call_task already exists
+    const existingTask = await prisma.call_tasks.findUnique({
+      where: {
+        campaign_id_phone_number_id: {
+          campaign_id: campaignId,
+          phone_number_id: phoneNumberId,
+        },
+      },
+    });
+
+    if (existingTask) {
+      throw new CallTaskAlreadyExistsError(campaignId, phoneNumberId);
+    }
+
+    // Get the schedule to calculate scheduled_at
+    if (!campaign.schedule_id || !campaign.call_schedules) {
+      throw new InvalidScheduleError('Campaign does not have a valid schedule');
+    }
+
+    const schedule = campaign.call_schedules;
+
+    // Calculate the next valid scheduled date
+    const scheduledAt = getNextValidScheduleDate(schedule);
+    if (!scheduledAt) {
+      throw new InvalidScheduleError(
+        `Could not find a valid schedule slot for campaign ${campaignId} with schedule ${schedule.id}`
+      );
+    }
+
+    // Create the call_task
+    const callTask = await prisma.call_tasks.create({
+      data: {
+        user_id: campaign.user_id,
+        campaign_id: campaignId,
+        phone_number_id: phoneNumberId,
+        scheduled_at: scheduledAt,
+        status: 'pending',
+        retry_count: 0,
+      },
+    });
+
+    // Update campaign total_tasks counter
+    await prisma.call_campaigns.update({
+      where: { id: campaignId },
+      data: {
+        total_tasks: { increment: 1 },
+      },
+    });
+
+    return callTask;
   },
 };
 

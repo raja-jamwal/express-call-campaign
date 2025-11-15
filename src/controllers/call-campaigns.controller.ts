@@ -6,6 +6,9 @@ import {
   CallCampaignNotFoundError,
   CallScheduleNotFoundError,
   UserNotFoundError,
+  PhoneNumberNotFoundError,
+  CallTaskAlreadyExistsError,
+  InvalidScheduleError,
 } from '../services/call-campaigns.service';
 import { validate } from '../middleware/validate';
 import { registry } from '../lib/openapi';
@@ -507,6 +510,101 @@ router.get('/:id/status', validate(getCampaignStatusSchema), async (req: Request
     throw error;
   }
 });
+
+// Schema for adding phone number to campaign
+const addPhoneNumberToCampaignSchema = z.object({
+  params: z.object({
+    id: z.string().uuid('Invalid call campaign ID format').openapi({
+      description: 'Call campaign ID',
+      example: '123e4567-e89b-12d3-a456-426614174000',
+    }),
+  }),
+  body: z.object({
+    phone_number_id: z.string().uuid('Invalid phone number ID format').openapi({
+      description: 'Phone number ID to add to the campaign',
+      example: '123e4567-e89b-12d3-a456-426614174000',
+    }),
+  }),
+});
+
+// Response schema for call task
+const CallTaskResponseSchema = z.object({
+  id: z.string().uuid().openapi({ example: '123e4567-e89b-12d3-a456-426614174000' }),
+  user_id: z.string().uuid().openapi({ example: '123e4567-e89b-12d3-a456-426614174000' }),
+  campaign_id: z.string().uuid().openapi({ example: '123e4567-e89b-12d3-a456-426614174000' }),
+  phone_number_id: z.string().uuid().openapi({ example: '123e4567-e89b-12d3-a456-426614174000' }),
+  status: z.enum(['pending', 'in-progress', 'completed', 'failed']).openapi({ example: 'pending' }),
+  scheduled_at: z.string().datetime().openapi({ example: '2024-01-01T09:00:00Z' }),
+  retry_count: z.number().int().openapi({ example: 0 }),
+  created_at: z.string().datetime().nullable().openapi({ example: '2024-01-01T00:00:00Z' }),
+  updated_at: z.string().datetime().nullable().openapi({ example: '2024-01-01T00:00:00Z' }),
+});
+
+// Register POST /call-campaigns/:id/add-phone-number endpoint
+registry.registerPath({
+  method: 'post',
+  path: '/call-campaigns/{id}/add-phone-number',
+  tags: ['Call Campaigns'],
+  summary: 'Add a phone number to a campaign',
+  description: 'Creates a call task for the given phone number in the campaign. The task will be scheduled based on the campaign\'s schedule rules.',
+  request: {
+    params: addPhoneNumberToCampaignSchema.shape.params,
+    body: {
+      content: {
+        'application/json': {
+          schema: addPhoneNumberToCampaignSchema.shape.body,
+        },
+      },
+    },
+  },
+  responses: {
+    201: {
+      description: 'Phone number added to campaign successfully',
+      content: {
+        'application/json': {
+          schema: CallTaskResponseSchema,
+        },
+      },
+    },
+    400: {
+      description: 'Validation error or invalid schedule',
+    },
+    404: {
+      description: 'Campaign or phone number not found',
+    },
+    409: {
+      description: 'Call task already exists for this phone number in the campaign',
+    },
+  },
+});
+
+// Add phone number to campaign
+router.post(
+  '/:id/add-phone-number',
+  validate(addPhoneNumberToCampaignSchema),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params;
+      const { phone_number_id } = req.body;
+      const callTask = await callCampaignService.addPhoneNumberToCampaign(id, phone_number_id);
+      res.status(201).json(callTask);
+    } catch (error) {
+      if (error instanceof CallCampaignNotFoundError || error instanceof PhoneNumberNotFoundError) {
+        res.status(404).json({ error: error.message });
+        return;
+      }
+      if (error instanceof CallTaskAlreadyExistsError) {
+        res.status(409).json({ error: error.message });
+        return;
+      }
+      if (error instanceof InvalidScheduleError) {
+        res.status(400).json({ error: error.message });
+        return;
+      }
+      throw error;
+    }
+  }
+);
 
 export default router;
 
