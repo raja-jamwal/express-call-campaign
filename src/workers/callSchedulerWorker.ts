@@ -1,8 +1,11 @@
 import 'dotenv/config';
 import { prisma } from '../lib/prisma';
+import { call_tasks } from '@prisma/client';
+import { enqueueCallTasks } from '../queues/callTaskQueue';
 
-const SCHEDULER_INTERVAL_MS = 2 * 60 * 1000; // 2 minutes
+const SCHEDULE_WINDOW_MINUTES = 2; // 2 minutes
 let isShuttingDown = false;
+const GLOBAL_MAX_CONCURRENT_CALLS = 50;
 
 async function checkAndScheduleCampaigns() {
   if (isShuttingDown) return;
@@ -16,7 +19,31 @@ async function checkAndScheduleCampaigns() {
     // 2. Generate call tasks for those campaigns
     // 3. Enqueue tasks to callTaskQueue
 
-    console.log('[call-scheduler] Campaign check completed');
+    // This SQL query is the core of the atomic claiming logic.
+    // It finds, locks, updates, and returns the tasks in a single, non-blocking operation.
+    const callsToRun = await prisma.$queryRaw<call_tasks[]>`
+    UPDATE call_tasks
+    SET status = 'in-progress', updated_at = NOW()
+    WHERE id IN (
+        SELECT ct.id FROM call_tasks ct
+        JOIN call_campaigns cc ON ct.campaign_id = cc.id
+        WHERE cc.is_paused = FALSE
+        AND status = 'pending'
+        AND scheduled_at <= NOW() + INTERVAL '${SCHEDULE_WINDOW_MINUTES + 1} minutes'
+        ORDER BY scheduled_at ASC
+        LIMIT ${GLOBAL_MAX_CONCURRENT_CALLS}
+        FOR UPDATE SKIP LOCKED
+    )
+    RETURNING *;
+    `;
+
+    if (callsToRun.length === 0) {
+      console.log('[call-scheduler] No tasks to claim');
+      return;
+    }
+
+    await enqueueCallTasks(callsToRun.map((callTask) => ({ callTaskId: callTask.id })));
+    console.log(`[call-scheduler] ${callsToRun.length} tasks claimed and enqueued`);
   } catch (error) {
     console.error('[call-scheduler] Error checking campaigns:', error);
   }
@@ -30,7 +57,7 @@ async function main() {
 
   // Then run every 2 minutes
   while (!isShuttingDown) {
-    await new Promise(resolve => setTimeout(resolve, SCHEDULER_INTERVAL_MS));
+    await new Promise(resolve => setTimeout(resolve, SCHEDULE_WINDOW_MINUTES * 60 * 1000));
 
     if (!isShuttingDown) {
       await checkAndScheduleCampaigns();
