@@ -17,7 +17,7 @@ const worker = new Worker<CallTaskJobData>(
 
     // Fetch the full task details, including its campaign and phone number
     const callTask = await prisma.call_tasks.findUnique({
-      where: { id: callTaskId, status: 'pending' },
+      where: { id: callTaskId },
       include: {
         phone_numbers: true,
         call_campaigns: {
@@ -27,6 +27,8 @@ const worker = new Worker<CallTaskJobData>(
         },
       },
     });
+
+    console.log(`[Worker] Call task ${callTaskId} found:`, callTask);
 
     if (!callTask) {
       console.error(`[Worker] Call task ${callTaskId} not found. Acknowledging job.`);

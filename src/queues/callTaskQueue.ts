@@ -17,12 +17,13 @@ export const callTaskQueue = new Queue('call-tasks', {
 // Job data interface
 export interface CallTaskJobData {
   callTaskId: string;
+  callScheduledAt: string;
 }
 
 // Helper function to enqueue a call task
 export async function enqueueCallTask(data: CallTaskJobData) {
   return await callTaskQueue.add('make-call', data, {
-    jobId: `call-task-${data.callTaskId}`, // Prevent duplicate jobs
+    jobId: `call-task-${data.callTaskId}-${data.callScheduledAt}`, // Prevent duplicate jobs
   });
 }
 
@@ -33,7 +34,7 @@ export async function enqueueCallTasks(tasks: CallTaskJobData[]) {
       name: 'make-call',
       data,
       opts: {
-        jobId: `call-task-${data.callTaskId}`,
+        jobId: `call-task-${data.callTaskId}-${data.callScheduledAt}`,
       },
     }))
   );

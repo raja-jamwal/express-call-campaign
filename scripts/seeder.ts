@@ -80,7 +80,7 @@ async function main() {
   // Create Call Campaigns (100+)
   console.log('📢 Creating call campaigns...');
   const campaigns = [];
-  const TASKS_PER_CAMPAIGN = 100; // Fixed number of tasks per campaign
+  const TASKS_PER_CAMPAIGN = 10; // Fixed number of tasks per campaign
 
   const campaignCount = faker.number.int({ min: 100, max: 150 });
   
@@ -137,9 +137,9 @@ async function main() {
             status: 'pending',
             scheduled_at: faker.date.between({
               from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
-              to: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+              to: new Date(),
             }),
-            retry_count: faker.number.int({ min: 0, max: 3 }),
+            retry_count: 0,
           },
         });
         callTasks.push(task);

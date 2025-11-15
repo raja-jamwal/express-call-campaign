@@ -5,7 +5,6 @@ import { enqueueCallTasks } from '../queues/callTaskQueue';
 
 const SCHEDULE_WINDOW_MINUTES = 1; // 1 minutes
 let isShuttingDown = false;
-const GLOBAL_MAX_CONCURRENT_CALLS = 50;
 
 async function checkAndScheduleCampaigns() {
   if (isShuttingDown) return;
@@ -28,7 +27,6 @@ async function checkAndScheduleCampaigns() {
         AND ct.status = 'pending'
         AND ct.scheduled_at <= NOW() + INTERVAL '${SCHEDULE_WINDOW_MINUTES + 1} minutes'
         ORDER BY ct.scheduled_at ASC
-        LIMIT ${GLOBAL_MAX_CONCURRENT_CALLS}
         FOR UPDATE SKIP LOCKED
     )
     RETURNING *;
@@ -39,7 +37,7 @@ async function checkAndScheduleCampaigns() {
       return;
     }
 
-    await enqueueCallTasks(callsToRun.map((callTask) => ({ callTaskId: callTask.id })));
+    await enqueueCallTasks(callsToRun.map((callTask) => ({ callTaskId: callTask.id, callScheduledAt: callTask.scheduled_at.toISOString() })));
     console.log(`[call-scheduler] ${callsToRun.length} tasks claimed and enqueued`);
   } catch (error) {
     console.error('[call-scheduler] Error checking campaigns:', error);
