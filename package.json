@@ -1,0 +1,45 @@
+{
+  "name": "express-call-campaign",
+  "version": "1.0.0",
+  "description": "Express + Prisma + BullMQ boilerplate for call campaigns",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "worker:call": "ts-node-dev --respawn --transpile-only src/workers/callWorker.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "prisma:pull": "prisma db pull",
+    "prisma:generate": "prisma generate",
+    "prisma:studio": "prisma studio",
+    "seed": "ts-node scripts/seeder.ts",
+    "example": "ts-node examples/api-client.ts",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f"
+  },
+  "keywords": [
+    "express",
+    "prisma",
+    "bullmq",
+    "typescript"
+  ],
+  "author": "Raja Jamwal",
+  "license": "MIT",
+  "dependencies": {
+    "@prisma/client": "^6.19.0",
+    "bullmq": "^5.0.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-async-errors": "^3.1.1",
+    "ioredis": "^5.4.1"
+  },
+  "devDependencies": {
+    "@faker-js/faker": "^9.3.0",
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.0.0",
+    "prisma": "^6.19.0",
+    "ts-node": "^10.9.2",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.5.4"
+  }
+}

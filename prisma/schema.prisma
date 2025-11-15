@@ -1,0 +1,146 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model call_campaigns {
+  id                   String          @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  user_id              String          @db.Uuid
+  name                 String          @db.VarChar(255)
+  status               campaign_status @default(pending)
+  schedule_id          String          @db.Uuid
+  max_concurrent_calls Int             @default(5)
+  max_retries          Int             @default(3)
+  retry_delay_seconds  Int             @default(300)
+  total_tasks          Int             @default(0)
+  completed_tasks      Int             @default(0)
+  failed_tasks         Int             @default(0)
+  retries_attempted    Int             @default(0)
+  created_at           DateTime?       @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime?       @default(now()) @db.Timestamptz(6)
+  call_schedules       call_schedules  @relation(fields: [schedule_id], references: [id], onUpdate: NoAction)
+  users                users           @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  call_tasks           call_tasks[]
+
+  @@index([schedule_id], map: "idx_call_campaigns_on_schedule_id")
+  @@index([status], map: "idx_call_campaigns_on_status")
+  @@index([user_id], map: "idx_call_campaigns_on_user_id")
+}
+
+model call_logs {
+  id               String          @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  user_id          String          @db.Uuid
+  call_task_id     String          @db.Uuid
+  phone_number_id  String          @db.Uuid
+  dialed_number    String          @db.VarChar(50)
+  external_call_id String?         @unique @db.VarChar(255)
+  status           call_log_status
+  failure_reason   String?
+  started_at       DateTime?       @db.Timestamptz(6)
+  ended_at         DateTime?       @db.Timestamptz(6)
+  created_at       DateTime?       @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime?       @default(now()) @db.Timestamptz(6)
+  call_tasks       call_tasks      @relation(fields: [call_task_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  phone_numbers    phone_numbers   @relation(fields: [phone_number_id], references: [id], onUpdate: NoAction)
+  users            users           @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([call_task_id], map: "idx_call_logs_on_call_task_id")
+  @@index([external_call_id], map: "idx_call_logs_on_external_call_id")
+  @@index([user_id], map: "idx_call_logs_on_user_id")
+}
+
+model call_schedules {
+  id             String           @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  user_id        String           @db.Uuid
+  name           String           @db.VarChar(255)
+  time_zone      String           @db.VarChar(100)
+  schedule_rules Json
+  created_at     DateTime?        @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime?        @default(now()) @db.Timestamptz(6)
+  call_campaigns call_campaigns[]
+  users          users            @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id], map: "idx_call_schedules_on_user_id")
+}
+
+model call_tasks {
+  id              String         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  user_id         String         @db.Uuid
+  campaign_id     String         @db.Uuid
+  phone_number_id String         @db.Uuid
+  status          task_status    @default(pending)
+  scheduled_at    DateTime       @db.Timestamptz(6)
+  retry_count     Int            @default(0)
+  created_at      DateTime?      @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime?      @default(now()) @db.Timestamptz(6)
+  call_logs       call_logs[]
+  call_campaigns  call_campaigns @relation(fields: [campaign_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  phone_numbers   phone_numbers  @relation(fields: [phone_number_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users           users          @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([campaign_id, phone_number_id])
+  @@index([campaign_id], map: "idx_call_tasks_on_campaign_id")
+  @@index([phone_number_id], map: "idx_call_tasks_on_phone_number_id")
+  @@index([status, scheduled_at], map: "idx_call_tasks_on_status_and_scheduled_at")
+  @@index([user_id], map: "idx_call_tasks_on_user_id")
+}
+
+model phone_numbers {
+  id         String              @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  user_id    String              @db.Uuid
+  number     String              @db.VarChar(50)
+  status     phone_number_status @default(valid)
+  created_at DateTime?           @default(now()) @db.Timestamptz(6)
+  updated_at DateTime?           @default(now()) @db.Timestamptz(6)
+  call_logs  call_logs[]
+  call_tasks call_tasks[]
+  users      users               @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([user_id, number])
+  @@index([user_id], map: "idx_phone_numbers_on_user_id")
+}
+
+model users {
+  id             String           @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name           String           @db.VarChar(255)
+  email          String           @unique @db.VarChar(255)
+  created_at     DateTime?        @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime?        @default(now()) @db.Timestamptz(6)
+  call_campaigns call_campaigns[]
+  call_logs      call_logs[]
+  call_schedules call_schedules[]
+  call_tasks     call_tasks[]
+  phone_numbers  phone_numbers[]
+}
+
+enum call_log_status {
+  initiated
+  in_progress @map("in-progress")
+  completed
+  failed
+}
+
+enum campaign_status {
+  pending
+  in_progress @map("in-progress")
+  paused
+  completed
+  failed
+}
+
+enum phone_number_status {
+  valid
+  invalid
+  do_not_call
+}
+
+enum task_status {
+  pending
+  in_progress @map("in-progress")
+  completed
+  failed
+}
