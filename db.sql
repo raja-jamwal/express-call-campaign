@@ -129,7 +129,6 @@ CREATE TABLE call_logs (
     dialed_number VARCHAR(50) NOT NULL,
     external_call_id VARCHAR(255) UNIQUE,
     status call_log_status NOT NULL,
-    failure_reason TEXT,
     started_at TIMESTAMP WITH TIME ZONE,
     ended_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,

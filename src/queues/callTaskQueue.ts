@@ -5,7 +5,7 @@ export const callTaskQueue = new Queue('call-tasks', {
   connection: redisConnection,
   defaultJobOptions: {
     // This is for transient errors, i.e uncatched errors
-    // call failure are grafefully handled in the worker
+    // call failure are gracefully handled in the worker
     attempts: Number(process.env.BULLMQ_MAX_RETRIES ?? 3),
     backoff: {
       type: 'exponential',
