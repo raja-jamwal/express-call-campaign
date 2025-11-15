@@ -114,8 +114,8 @@ CREATE TABLE call_tasks (
 );
 CREATE INDEX idx_call_tasks_on_user_id ON call_tasks(user_id);
 CREATE INDEX idx_call_tasks_on_campaign_id ON call_tasks(campaign_id);
-CREATE INDEX idx_call_tasks_on_phone_number_id ON call_tasks(phone_number_id);
-CREATE INDEX idx_call_tasks_on_status_and_scheduled_at ON call_tasks(status, scheduled_at);
+CREATE INDEX idx_call_tasks_on_phone_number_id ON call_tasks(campaign_id, phone_number_id);
+CREATE INDEX idx_call_tasks_on_status ON call_tasks(campaign_id, status);
 
 -- =============================================================================
 -- 6. CallLog Entity

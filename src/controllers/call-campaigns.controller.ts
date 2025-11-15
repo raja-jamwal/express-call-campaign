@@ -446,5 +446,67 @@ router.delete('/:id', validate(deleteCallCampaignSchema), async (req: Request, r
   }
 });
 
+// Schema for getting campaign status
+const getCampaignStatusSchema = z.object({
+  params: z.object({
+    id: z.string().uuid('Invalid call campaign ID format').openapi({
+      description: 'Call campaign ID',
+      example: '123e4567-e89b-12d3-a456-426614174000',
+    }),
+  }),
+});
+
+// Response schema for campaign status
+const CampaignStatusResponseSchema = z.object({
+  campaign_id: z.string().uuid().openapi({ example: '123e4567-e89b-12d3-a456-426614174000' }),
+  status: z.enum(['paused', 'pending', 'in-progress', 'completed', 'failed']).openapi({
+    description: 'Campaign status',
+    example: 'in-progress',
+  }),
+});
+
+// Register GET /call-campaigns/:id/status endpoint
+registry.registerPath({
+  method: 'get',
+  path: '/call-campaigns/{id}/status',
+  tags: ['Call Campaigns'],
+  summary: 'Get campaign status',
+  description: 'Returns the current status of a campaign based on its pause state and task statuses',
+  request: {
+    params: getCampaignStatusSchema.shape.params,
+  },
+  responses: {
+    200: {
+      description: 'Campaign status retrieved successfully',
+      content: {
+        'application/json': {
+          schema: CampaignStatusResponseSchema,
+        },
+      },
+    },
+    400: {
+      description: 'Invalid call campaign ID format',
+    },
+    404: {
+      description: 'Call campaign not found',
+    },
+  },
+});
+
+// Get campaign status
+router.get('/:id/status', validate(getCampaignStatusSchema), async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const status = await callCampaignService.getCampaignStatus(id);
+    res.json({ campaign_id: id, status });
+  } catch (error) {
+    if (error instanceof CallCampaignNotFoundError) {
+      res.status(404).json({ error: error.message });
+      return;
+    }
+    throw error;
+  }
+});
+
 export default router;
 

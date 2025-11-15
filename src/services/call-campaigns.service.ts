@@ -1,6 +1,7 @@
 import { callCampaignRepository } from '../repositories/call-campaigns.repository';
 import { callScheduleRepository } from '../repositories/call-schedules.repository';
 import { userRepository } from '../repositories/users.repository';
+import { prisma } from '../lib/prisma';
 
 // Custom error classes
 export class CallCampaignNotFoundError extends Error {
@@ -115,6 +116,69 @@ export const callCampaignService = {
     }
 
     return callCampaignRepository.delete(id);
+  },
+
+  async getCampaignStatus(id: string): Promise<'paused' | 'pending' | 'in-progress' | 'completed' | 'failed'> {
+    // Get the campaign
+    const campaign = await callCampaignRepository.findById(id);
+    if (!campaign) {
+      throw new CallCampaignNotFoundError(id);
+    }
+
+    // If campaign is paused, return paused
+    if (campaign.is_paused) {
+      return 'paused';
+    }
+
+    // Use raw SQL query to efficiently aggregate task statuses
+    const result = await prisma.$queryRaw<
+      Array<{
+        total_tasks: bigint;
+        failed_count: bigint;
+        in_progress_count: bigint;
+        pending_count: bigint;
+        completed_count: bigint;
+      }>
+    >`
+      SELECT 
+        COUNT(*) as total_tasks,
+        COUNT(*) FILTER (WHERE status = 'failed') as failed_count,
+        COUNT(*) FILTER (WHERE status = 'in-progress') as in_progress_count,
+        COUNT(*) FILTER (WHERE status = 'pending') as pending_count,
+        COUNT(*) FILTER (WHERE status = 'completed') as completed_count
+      FROM call_tasks
+      WHERE campaign_id = ${id}::uuid
+    `;
+
+    const stats = result[0];
+    const totalTasks = Number(stats.total_tasks);
+    const failedCount = Number(stats.failed_count);
+    const inProgressCount = Number(stats.in_progress_count);
+    const pendingCount = Number(stats.pending_count);
+    const completedCount = Number(stats.completed_count);
+
+    // If no tasks exist, return paused as fallback
+    if (totalTasks === 0) {
+      return 'paused';
+    }
+
+    // Check if any task has failed
+    if (failedCount > 0) {
+      return 'failed';
+    }
+
+    // Check if any task is pending or in-progress
+    if (inProgressCount > 0 || pendingCount > 0) {
+      return 'in-progress';
+    }
+
+    // Check if all tasks are completed
+    if (completedCount === totalTasks) {
+      return 'completed';
+    }
+
+    // Fallback
+    return 'paused';
   },
 };
 
