@@ -24,16 +24,16 @@ async function main() {
   });
   console.log(`✅ Created user: ${user.name} (${user.email})`);
 
-  // Create Phone Numbers (100+)
+  // Create Phone Numbers (need enough for campaigns)
   console.log('📱 Creating phone numbers...');
   const phoneNumbers = [];
-  const phoneCount = faker.number.int({ min: 100, max: 150 });
+  const phoneCount = 500; // Create enough phone numbers for multiple campaigns (100+ tasks each)
   for (let i = 0; i < phoneCount; i++) {
     const phoneNumber = await prisma.phone_numbers.create({
       data: {
         user_id: user.id,
         number: `+1${faker.string.numeric(10)}`,
-        status: faker.helpers.arrayElement(['valid', 'valid', 'valid', 'invalid', 'do_not_call']),
+        status: 'valid', // Ensure all are valid for campaign tasks
       },
     });
     phoneNumbers.push(phoneNumber);
@@ -80,13 +80,11 @@ async function main() {
   // Create Call Campaigns (100+)
   console.log('📢 Creating call campaigns...');
   const campaigns = [];
+  const TASKS_PER_CAMPAIGN = 100; // Fixed number of tasks per campaign
 
   const campaignCount = faker.number.int({ min: 100, max: 150 });
+  
   for (let i = 0; i < campaignCount; i++) {
-    const totalTasks = faker.number.int({ min: 10, max: 50 });
-    const completedTasks = faker.number.int({ min: 0, max: totalTasks });
-    const failedTasks = faker.number.int({ min: 0, max: totalTasks - completedTasks });
-
     const campaign = await prisma.call_campaigns.create({
       data: {
         user_id: user.id,
@@ -100,15 +98,15 @@ async function main() {
           'Holiday Promotion',
           'Lead Generation',
         ]) + ` - ${faker.company.name()}`,
-        is_paused: faker.datatype.boolean(),
+        is_paused: true,
         schedule_id: faker.helpers.arrayElement(schedules).id,
         max_concurrent_calls: faker.number.int({ min: 3, max: 10 }),
         max_retries: faker.number.int({ min: 1, max: 5 }),
         retry_delay_seconds: faker.helpers.arrayElement([60, 120, 300, 600, 900]),
-        total_tasks: totalTasks,
-        completed_tasks: completedTasks,
-        failed_tasks: failedTasks,
-        retries_attempted: faker.number.int({ min: 0, max: failedTasks * 2 }),
+        total_tasks: TASKS_PER_CAMPAIGN,
+        completed_tasks: 0,
+        failed_tasks: 0,
+        retries_attempted: 0,
       },
     });
     campaigns.push(campaign);
@@ -118,29 +116,25 @@ async function main() {
   // Create Call Tasks
   console.log('📞 Creating call tasks...');
   const callTasks = [];
-  const taskStatuses: Array<'pending' | 'in_progress' | 'completed' | 'failed'> = [
-    'pending',
-    'in_progress',
-    'completed',
-    'failed',
-  ];
+  const validPhoneNumbers = phoneNumbers.filter((pn) => pn.user_id === user.id && pn.status === 'valid');
 
   for (const campaign of campaigns) {
-    const userPhoneNumbers = phoneNumbers.filter((pn) => pn.user_id === campaign.user_id && pn.status === 'valid');
-    
-    if (userPhoneNumbers.length === 0) continue;
+    if (validPhoneNumbers.length < TASKS_PER_CAMPAIGN) {
+      console.warn(`⚠️  Not enough phone numbers for campaign ${campaign.id}. Skipping...`);
+      continue;
+    }
 
-    const taskCount = Math.min(campaign.total_tasks, faker.number.int({ min: 5, max: 15 }));
-    const selectedPhones = faker.helpers.arrayElements(userPhoneNumbers, Math.min(taskCount, userPhoneNumbers.length));
+    // Select 100 unique phone numbers for this campaign
+    const selectedPhones = faker.helpers.arrayElements(validPhoneNumbers, TASKS_PER_CAMPAIGN);
 
-    for (let i = 0; i < selectedPhones.length; i++) {
+    for (const phoneNumber of selectedPhones) {
       try {
         const task = await prisma.call_tasks.create({
           data: {
             user_id: campaign.user_id,
             campaign_id: campaign.id,
-            phone_number_id: selectedPhones[i].id,
-            status: faker.helpers.arrayElement(taskStatuses),
+            phone_number_id: phoneNumber.id,
+            status: 'pending',
             scheduled_at: faker.date.between({
               from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
               to: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
@@ -151,6 +145,7 @@ async function main() {
         callTasks.push(task);
       } catch (error) {
         // Skip if unique constraint fails (campaign_id, phone_number_id already exists)
+        console.warn(`⚠️  Duplicate phone number for campaign ${campaign.id}, skipping...`);
         continue;
       }
     }
@@ -158,60 +153,60 @@ async function main() {
   console.log(`✅ Created ${callTasks.length} call tasks`);
 
   // Create Call Logs
-  console.log('📋 Creating call logs...');
-  const callLogStatuses: Array<'initiated' | 'in_progress' | 'completed' | 'failed'> = [
-    'initiated',
-    'in_progress',
-    'completed',
-    'failed',
-  ];
+  // console.log('📋 Creating call logs...');
+  // const callLogStatuses: Array<'initiated' | 'in_progress' | 'completed' | 'failed'> = [
+  //   'initiated',
+  //   'in_progress',
+  //   'completed',
+  //   'failed',
+  // ];
 
-  let callLogsCount = 0;
-  for (const task of callTasks) {
-    // Create logs for completed or failed tasks
-    if (task.status === 'completed' || task.status === 'failed') {
-      const logsToCreate = faker.number.int({ min: 1, max: task.retry_count + 1 });
+  // let callLogsCount = 0;
+  // for (const task of callTasks) {
+  //   // Create logs for completed or failed tasks
+  //   if (task.status === 'completed' || task.status === 'failed') {
+  //     const logsToCreate = faker.number.int({ min: 1, max: task.retry_count + 1 });
 
-      for (let i = 0; i < logsToCreate; i++) {
-        const phoneNumber = phoneNumbers.find((pn) => pn.id === task.phone_number_id);
-        if (!phoneNumber) continue;
+  //     for (let i = 0; i < logsToCreate; i++) {
+  //       const phoneNumber = phoneNumbers.find((pn) => pn.id === task.phone_number_id);
+  //       if (!phoneNumber) continue;
 
-        const logStatus = faker.helpers.arrayElement(callLogStatuses);
-        const startedAt = faker.date.between({
-          from: new Date(task.scheduled_at.getTime() - 3600000),
-          to: task.scheduled_at,
-        });
-        const endedAt = logStatus === 'completed' || logStatus === 'failed'
-          ? new Date(startedAt.getTime() + faker.number.int({ min: 30000, max: 1800000 })) // 30s to 30min
-          : null;
+  //       const logStatus = faker.helpers.arrayElement(callLogStatuses);
+  //       const startedAt = faker.date.between({
+  //         from: new Date(task.scheduled_at.getTime() - 3600000),
+  //         to: task.scheduled_at,
+  //       });
+  //       const endedAt = logStatus === 'completed' || logStatus === 'failed'
+  //         ? new Date(startedAt.getTime() + faker.number.int({ min: 30000, max: 1800000 })) // 30s to 30min
+  //         : null;
 
-        await prisma.call_logs.create({
-          data: {
-            user_id: task.user_id,
-            call_task_id: task.id,
-            phone_number_id: task.phone_number_id,
-            dialed_number: phoneNumber.number,
-            external_call_id: `call_${faker.string.alphanumeric(24)}`,
-            status: logStatus,
-            failure_reason: logStatus === 'failed'
-              ? faker.helpers.arrayElement([
-                  'No answer',
-                  'Busy',
-                  'Invalid number',
-                  'Network error',
-                  'Call rejected',
-                  'Voicemail',
-                ])
-              : null,
-            started_at: startedAt,
-            ended_at: endedAt,
-          },
-        });
-        callLogsCount++;
-      }
-    }
-  }
-  console.log(`✅ Created ${callLogsCount} call logs`);
+  //       await prisma.call_logs.create({
+  //         data: {
+  //           user_id: task.user_id,
+  //           call_task_id: task.id,
+  //           phone_number_id: task.phone_number_id,
+  //           dialed_number: phoneNumber.number,
+  //           external_call_id: `call_${faker.string.alphanumeric(24)}`,
+  //           status: logStatus,
+  //           failure_reason: logStatus === 'failed'
+  //             ? faker.helpers.arrayElement([
+  //                 'No answer',
+  //                 'Busy',
+  //                 'Invalid number',
+  //                 'Network error',
+  //                 'Call rejected',
+  //                 'Voicemail',
+  //               ])
+  //             : null,
+  //           started_at: startedAt,
+  //           ended_at: endedAt,
+  //         },
+  //       });
+  //       callLogsCount++;
+  //     }
+  //   }
+  // }
+  // console.log(`✅ Created ${callLogsCount} call logs`);
 
   console.log('🎉 Database seeding completed successfully!');
   console.log('\n📊 Summary:');
@@ -220,7 +215,7 @@ async function main() {
   console.log(`   - Call Schedules: ${schedules.length}`);
   console.log(`   - Call Campaigns: ${campaigns.length}`);
   console.log(`   - Call Tasks: ${callTasks.length}`);
-  console.log(`   - Call Logs: ${callLogsCount}`);
+  // console.log(`   - Call Logs: ${callLogsCount}`);
 }
 
 main()
