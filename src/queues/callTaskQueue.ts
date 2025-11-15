@@ -1,7 +1,7 @@
 import { Queue } from 'bullmq';
 import { redisConnection } from '../lib/redis';
 
-export const callQueue = new Queue('call-tasks', {
+export const callTaskQueue = new Queue('call-tasks', {
   connection: redisConnection,
   defaultJobOptions: {
     attempts: Number(process.env.BULLMQ_MAX_RETRIES ?? 3),
@@ -30,14 +30,14 @@ export interface CallJobData {
 
 // Helper function to enqueue a call task
 export async function enqueueCallTask(data: CallJobData) {
-  return await callQueue.add('make-call', data, {
+  return await callTaskQueue.add('make-call', data, {
     jobId: `call-task-${data.taskId}`, // Prevent duplicate jobs
   });
 }
 
 // Helper function to enqueue multiple call tasks
 export async function enqueueCallTasks(tasks: CallJobData[]) {
-  return await callQueue.addBulk(
+  return await callTaskQueue.addBulk(
     tasks.map((data) => ({
       name: 'make-call',
       data,

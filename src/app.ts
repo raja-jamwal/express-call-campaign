@@ -5,7 +5,7 @@ import { createBullBoard } from '@bull-board/api';
 import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
 import { ExpressAdapter } from '@bull-board/express';
 import { prisma } from './lib/prisma';
-import { callQueue } from './queues/callQueue';
+import { callTaskQueue } from './queues/callTaskQueue';
 import { generateOpenApiDocument } from './lib/openapi';
 import usersController from './controllers/users.controller';
 import phoneNumbersController from './controllers/phone-numbers.controller';
@@ -20,7 +20,7 @@ const serverAdapter = new ExpressAdapter();
 serverAdapter.setBasePath('/admin/queues');
 
 createBullBoard({
-  queues: [new BullMQAdapter(callQueue)],
+  queues: [new BullMQAdapter(callTaskQueue)],
   serverAdapter: serverAdapter,
 });
 
@@ -57,7 +57,7 @@ app.use('/call-campaigns', callCampaignsController);
 
 // add test route GET to queue
 app.get('/test-queue', async (_req, res) => {
-  await callQueue.add('test-job', { message: 'Hello, world!' });
+  await callTaskQueue.add('test-job', { message: 'Hello, world!' });
   res.json({ message: 'Job added to queue' });
 });
 
