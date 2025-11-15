@@ -3,7 +3,7 @@ import { prisma } from '../lib/prisma';
 import { call_tasks } from '@prisma/client';
 import { enqueueCallTasks } from '../queues/callTaskQueue';
 
-const SCHEDULE_WINDOW_MINUTES = 2; // 2 minutes
+const SCHEDULE_WINDOW_MINUTES = 1; // 1 minutes
 let isShuttingDown = false;
 const GLOBAL_MAX_CONCURRENT_CALLS = 50;
 
@@ -13,11 +13,8 @@ async function checkAndScheduleCampaigns() {
   console.log('[call-scheduler] Checking active campaigns...');
 
   try {
-    // TODO: Implement campaign checking logic here
-    // Example:
     // 1. Find active campaigns that need processing
-    // 2. Generate call tasks for those campaigns
-    // 3. Enqueue tasks to callTaskQueue
+    // 2. Enqueue tasks to callTaskQueue
 
     // This SQL query is the core of the atomic claiming logic.
     // It finds, locks, updates, and returns the tasks in a single, non-blocking operation.
@@ -28,9 +25,9 @@ async function checkAndScheduleCampaigns() {
         SELECT ct.id FROM call_tasks ct
         JOIN call_campaigns cc ON ct.campaign_id = cc.id
         WHERE cc.is_paused = FALSE
-        AND status = 'pending'
-        AND scheduled_at <= NOW() + INTERVAL '${SCHEDULE_WINDOW_MINUTES + 1} minutes'
-        ORDER BY scheduled_at ASC
+        AND ct.status = 'pending'
+        AND ct.scheduled_at <= NOW() + INTERVAL '${SCHEDULE_WINDOW_MINUTES + 1} minutes'
+        ORDER BY ct.scheduled_at ASC
         LIMIT ${GLOBAL_MAX_CONCURRENT_CALLS}
         FOR UPDATE SKIP LOCKED
     )
