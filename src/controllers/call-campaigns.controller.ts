@@ -15,12 +15,6 @@ extendZodWithOpenApi(z);
 
 const router = Router();
 
-// Campaign status enum
-const CampaignStatusEnum = z.enum(['pending', 'in_progress', 'paused', 'completed', 'failed']).openapi({
-  description: 'Campaign status',
-  example: 'pending',
-});
-
 // Reusable CallSchedule response schema (nested in campaign response)
 const CallScheduleNestedSchema = z.object({
   id: z.string().uuid().openapi({ example: '123e4567-e89b-12d3-a456-426614174000' }),
@@ -43,7 +37,7 @@ const CallCampaignResponseSchema = z.object({
   id: z.string().uuid().openapi({ example: '123e4567-e89b-12d3-a456-426614174000' }),
   user_id: z.string().uuid().openapi({ example: '123e4567-e89b-12d3-a456-426614174000' }),
   name: z.string().openapi({ example: 'Q1 Sales Campaign' }),
-  status: CampaignStatusEnum,
+  is_paused: z.boolean().openapi({ example: true }),
   schedule_id: z.string().uuid().openapi({ example: '123e4567-e89b-12d3-a456-426614174000' }),
   max_concurrent_calls: z.number().int().openapi({ example: 5 }),
   max_retries: z.number().int().openapi({ example: 3 }),
@@ -76,7 +70,10 @@ const createCallCampaignSchema = z.object({
       description: 'Schedule ID',
       example: '123e4567-e89b-12d3-a456-426614174000',
     }),
-    status: CampaignStatusEnum.optional(),
+    is_paused: z.boolean().optional().openapi({
+      description: 'Whether the campaign is paused',
+      example: true,
+    }),
     max_concurrent_calls: z
       .number()
       .int()
@@ -143,12 +140,12 @@ registry.registerPath({
 // Create call campaign
 router.post('/', validate(createCallCampaignSchema), async (req: Request, res: Response): Promise<void> => {
   try {
-    const { user_id, name, schedule_id, status, max_concurrent_calls, max_retries, retry_delay_seconds } = req.body;
+    const { user_id, name, schedule_id, is_paused, max_concurrent_calls, max_retries, retry_delay_seconds } = req.body;
     const callCampaign = await callCampaignService.createCallCampaign({
       user_id,
       name,
       schedule_id,
-      status,
+      is_paused,
       max_concurrent_calls,
       max_retries,
       retry_delay_seconds,
@@ -294,7 +291,10 @@ const updateCallCampaignSchema = z.object({
           description: 'Campaign name',
           example: 'Updated Campaign',
         }),
-      status: CampaignStatusEnum.optional(),
+      is_paused: z.boolean().optional().openapi({
+        description: 'Whether the campaign is paused',
+        example: true,
+      }),
       schedule_id: z.string().uuid('Invalid schedule ID format').optional().openapi({
         description: 'Schedule ID',
         example: '123e4567-e89b-12d3-a456-426614174000',
@@ -330,7 +330,7 @@ const updateCallCampaignSchema = z.object({
     .refine(
       (data) =>
         data.name ||
-        data.status ||
+        data.is_paused !== undefined ||
         data.schedule_id ||
         data.max_concurrent_calls !== undefined ||
         data.max_retries !== undefined ||
@@ -379,11 +379,11 @@ registry.registerPath({
 router.put('/:id', validate(updateCallCampaignSchema), async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const { name, status, schedule_id, max_concurrent_calls, max_retries, retry_delay_seconds } = req.body;
+    const { name, is_paused, schedule_id, max_concurrent_calls, max_retries, retry_delay_seconds } = req.body;
 
     const callCampaign = await callCampaignService.updateCallCampaign(id, {
       name,
-      status,
+      is_paused,
       schedule_id,
       max_concurrent_calls,
       max_retries,

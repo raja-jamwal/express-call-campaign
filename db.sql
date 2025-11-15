@@ -18,7 +18,6 @@ DROP TABLE IF EXISTS phone_numbers CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
 
 -- Drop custom ENUM types
-DROP TYPE IF EXISTS campaign_status;
 DROP TYPE IF EXISTS task_status;
 DROP TYPE IF EXISTS call_log_status;
 DROP TYPE IF EXISTS phone_number_status;
@@ -27,7 +26,6 @@ DROP TYPE IF EXISTS phone_number_status;
 -- Custom ENUM Types for Status Fields
 -- =============================================================================
 
-CREATE TYPE campaign_status AS ENUM ('pending', 'in-progress', 'paused', 'completed', 'failed');
 CREATE TYPE task_status AS ENUM ('pending', 'in-progress', 'completed', 'failed');
 CREATE TYPE call_log_status AS ENUM ('initiated', 'in-progress', 'completed', 'failed');
 CREATE TYPE phone_number_status AS ENUM ('valid', 'invalid', 'do_not_call');
@@ -82,7 +80,7 @@ CREATE TABLE call_campaigns (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
-    status campaign_status NOT NULL DEFAULT 'pending',
+    is_paused BOOLEAN NOT NULL DEFAULT TRUE,
     schedule_id UUID NOT NULL REFERENCES call_schedules(id) ON DELETE RESTRICT,
     max_concurrent_calls INTEGER NOT NULL DEFAULT 5,
     max_retries INTEGER NOT NULL DEFAULT 3,
@@ -96,7 +94,7 @@ CREATE TABLE call_campaigns (
 );
 CREATE INDEX idx_call_campaigns_on_user_id ON call_campaigns(user_id);
 CREATE INDEX idx_call_campaigns_on_schedule_id ON call_campaigns(schedule_id);
-CREATE INDEX idx_call_campaigns_on_status ON call_campaigns(status);
+CREATE INDEX idx_call_campaigns_on_is_paused ON call_campaigns(is_paused);
 
 -- =============================================================================
 -- 5. CallTask Entity

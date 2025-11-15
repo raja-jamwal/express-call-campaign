@@ -80,13 +80,6 @@ async function main() {
   // Create Call Campaigns (100+)
   console.log('📢 Creating call campaigns...');
   const campaigns = [];
-  const campaignStatuses: Array<'pending' | 'in_progress' | 'paused' | 'completed' | 'failed'> = [
-    'pending',
-    'in_progress',
-    'paused',
-    'completed',
-    'failed',
-  ];
 
   const campaignCount = faker.number.int({ min: 100, max: 150 });
   for (let i = 0; i < campaignCount; i++) {
@@ -107,7 +100,7 @@ async function main() {
           'Holiday Promotion',
           'Lead Generation',
         ]) + ` - ${faker.company.name()}`,
-        status: faker.helpers.arrayElement(campaignStatuses),
+        is_paused: faker.datatype.boolean(),
         schedule_id: faker.helpers.arrayElement(schedules).id,
         max_concurrent_calls: faker.number.int({ min: 3, max: 10 }),
         max_retries: faker.number.int({ min: 1, max: 5 }),

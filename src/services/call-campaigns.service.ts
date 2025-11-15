@@ -30,7 +30,7 @@ export const callCampaignService = {
     user_id: string;
     name: string;
     schedule_id: string;
-    status?: campaign_status;
+    is_paused?: boolean;
     max_concurrent_calls?: number;
     max_retries?: number;
     retry_delay_seconds?: number;
@@ -52,7 +52,7 @@ export const callCampaignService = {
       user_id: input.user_id,
       name: input.name,
       schedule_id: input.schedule_id,
-      status: input.status,
+      is_paused: input.is_paused,
       max_concurrent_calls: input.max_concurrent_calls,
       max_retries: input.max_retries,
       retry_delay_seconds: input.retry_delay_seconds,
@@ -86,7 +86,7 @@ export const callCampaignService = {
     id: string,
     input: {
       name?: string;
-      status?: campaign_status;
+      is_paused?: boolean;
       schedule_id?: string;
       max_concurrent_calls?: number;
       max_retries?: number;

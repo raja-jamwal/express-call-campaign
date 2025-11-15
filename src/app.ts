@@ -55,6 +55,12 @@ app.use('/phone-numbers', phoneNumbersController);
 app.use('/call-schedules', callSchedulesController);
 app.use('/call-campaigns', callCampaignsController);
 
+// add test route GET to queue
+app.get('/test-queue', async (_req, res) => {
+  await callQueue.add('test-job', { message: 'Hello, world!' });
+  res.json({ message: 'Job added to queue' });
+});
+
 // Error handler
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error('[Express] Error:', err);
