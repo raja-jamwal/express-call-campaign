@@ -31,3 +31,4 @@ logs/
 # Prisma
 prisma/migrations/
 
+*.md

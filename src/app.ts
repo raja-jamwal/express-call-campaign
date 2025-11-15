@@ -1,10 +1,24 @@
 import express from 'express';
 import 'express-async-errors';
+import { createBullBoard } from '@bull-board/api';
+import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
+import { ExpressAdapter } from '@bull-board/express';
 import { prisma } from './lib/prisma';
-import { enqueueCallTask, enqueueCallTasks, CallJobData } from './queues/callQueue';
+import { callQueue } from './queues/callQueue';
 
 const app = express();
 app.use(express.json());
+
+// Setup Bull Board for queue monitoring
+const serverAdapter = new ExpressAdapter();
+serverAdapter.setBasePath('/admin/queues');
+
+createBullBoard({
+  queues: [new BullMQAdapter(callQueue)],
+  serverAdapter: serverAdapter,
+});
+
+app.use('/admin/queues', serverAdapter.getRouter());
 
 // Health check endpoint
 app.get('/health', async (_req, res) => {
