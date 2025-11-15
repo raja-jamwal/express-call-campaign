@@ -81,7 +81,7 @@ CREATE TABLE call_campaigns (
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
     is_paused BOOLEAN NOT NULL DEFAULT TRUE,
-    schedule_id UUID NOT NULL REFERENCES call_schedules(id) ON DELETE RESTRICT,
+    schedule_id UUID REFERENCES call_schedules(id) ON DELETE SET NULL,
     max_concurrent_calls INTEGER NOT NULL DEFAULT 5,
     max_retries INTEGER NOT NULL DEFAULT 3,
     retry_delay_seconds INTEGER NOT NULL DEFAULT 300,

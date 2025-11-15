@@ -24,7 +24,7 @@ async function checkAndScheduleCampaigns() {
     WHERE id IN (
         SELECT ct.id FROM call_tasks ct
         JOIN call_campaigns cc ON ct.campaign_id = cc.id
-        WHERE cc.is_paused = FALSE
+        WHERE cc.is_paused = FALSE AND cc.schedule_id IS NOT NULL
         AND ct.status = 'pending'
         AND ct.scheduled_at <= NOW() + INTERVAL '${SCHEDULE_WINDOW_MINUTES + 1} minutes'
         ORDER BY ct.scheduled_at ASC
