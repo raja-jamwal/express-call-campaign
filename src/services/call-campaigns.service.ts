@@ -1,7 +1,6 @@
 import { callCampaignRepository } from '../repositories/call-campaigns.repository';
 import { callScheduleRepository } from '../repositories/call-schedules.repository';
 import { userRepository } from '../repositories/users.repository';
-import { campaign_status } from '@prisma/client';
 
 // Custom error classes
 export class CallCampaignNotFoundError extends Error {
@@ -52,7 +51,6 @@ export const callCampaignService = {
       user_id: input.user_id,
       name: input.name,
       schedule_id: input.schedule_id,
-      is_paused: input.is_paused,
       max_concurrent_calls: input.max_concurrent_calls,
       max_retries: input.max_retries,
       retry_delay_seconds: input.retry_delay_seconds,
