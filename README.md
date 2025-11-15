@@ -2,6 +2,26 @@
 
 Microservice designed to manage and execute outbound voice call campaigns. It extends a basic call-triggering API to support creating, scheduling, and monitoring campaigns with multiple calls. The system is built to be robust, scalable, and fault-tolerant, handling business hour constraints, concurrency limits, and automated retries.
 
+## Sample env
+Paste following in .env
+
+```
+# Application
+NODE_ENV=development
+PORT=3000
+
+# Database
+DATABASE_URL="postgresql://campaign_user:campaign_pass@localhost:5433/call_campaign_db?schema=public"
+
+# Redis
+REDIS_HOST=127.0.0.1
+REDIS_PORT=6379
+
+# BullMQ
+BULLMQ_MAX_RETRIES=3
+BULLMQ_RETRY_DELAY=5000
+```
+
 ## Features
 
 -   **Campaign Management:** Create, update, retrieve, and delete call campaigns. Each campaign groups multiple phone numbers for unified tracking.
