@@ -9,6 +9,8 @@ import { callQueue } from './queues/callQueue';
 import { generateOpenApiDocument } from './lib/openapi';
 import usersController from './controllers/users.controller';
 import phoneNumbersController from './controllers/phone-numbers.controller';
+import callSchedulesController from './controllers/call-schedules.controller';
+import callCampaignsController from './controllers/call-campaigns.controller';
 
 const app = express();
 app.use(express.json());
@@ -50,6 +52,8 @@ app.get('/health', async (_req, res) => {
 // Mount routers
 app.use('/users', usersController);
 app.use('/phone-numbers', phoneNumbersController);
+app.use('/call-schedules', callSchedulesController);
+app.use('/call-campaigns', callCampaignsController);
 
 // Error handler
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
