@@ -26,6 +26,7 @@
   "author": "Raja Jamwal",
   "license": "MIT",
   "dependencies": {
+    "@asteasolutions/zod-to-openapi": "^8.1.0",
     "@bull-board/api": "^6.14.2",
     "@bull-board/express": "^6.14.2",
     "@bull-board/ui": "^6.14.2",
@@ -35,12 +36,14 @@
     "express": "^4.19.2",
     "express-async-errors": "^3.1.1",
     "ioredis": "^5.4.1",
+    "swagger-ui-express": "^5.0.1",
     "zod": "^4.1.12"
   },
   "devDependencies": {
     "@faker-js/faker": "^9.3.0",
     "@types/express": "^4.17.21",
     "@types/node": "^22.0.0",
+    "@types/swagger-ui-express": "^4.1.8",
     "prisma": "^6.19.0",
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",

@@ -1,10 +1,12 @@
 import express from 'express';
 import 'express-async-errors';
+import * as swaggerUi from 'swagger-ui-express';
 import { createBullBoard } from '@bull-board/api';
 import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
 import { ExpressAdapter } from '@bull-board/express';
 import { prisma } from './lib/prisma';
 import { callQueue } from './queues/callQueue';
+import { generateOpenApiDocument } from './lib/openapi';
 import usersController from './controllers/users.controller';
 
 const app = express();
@@ -20,6 +22,18 @@ createBullBoard({
 });
 
 app.use('/admin/queues', serverAdapter.getRouter());
+
+// Setup Swagger UI for API documentation
+const openApiDocument = generateOpenApiDocument();
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(openApiDocument, {
+  customSiteTitle: 'Express Call Campaign API',
+  customCss: '.swagger-ui .topbar { display: none }',
+}));
+
+// Serve OpenAPI JSON spec
+app.get('/api-docs.json', (_req, res) => {
+  res.json(openApiDocument);
+});
 
 // Health check endpoint
 app.get('/health', async (_req, res) => {
