@@ -23,7 +23,7 @@ interface ScheduleRules {
  * @param rules - The object to validate.
  * @returns True if the object matches the ScheduleRules interface.
  */
-function isValidScheduleRules(rules: any): rules is ScheduleRules {
+export function isValidScheduleRules(rules: any): rules is ScheduleRules {
   return (
     rules &&
     Array.isArray(rules.days) &&

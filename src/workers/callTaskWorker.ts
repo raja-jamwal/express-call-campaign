@@ -5,6 +5,7 @@ import { prisma } from '../lib/prisma';
 import { CallTaskJobData } from '../queues/callTaskQueue';
 import { Redis } from 'ioredis';
 import { call_logs } from '@prisma/client';
+import { getNextValidScheduleDate, isValidScheduleRules } from '../lib/schedule_utils';
 
 const redis = new Redis(redisConnection);
 
@@ -18,8 +19,12 @@ const worker = new Worker<CallTaskJobData>(
     const callTask = await prisma.call_tasks.findUnique({
       where: { id: callTaskId, status: 'pending' },
       include: {
-        call_campaigns: true,
         phone_numbers: true,
+        call_campaigns: {
+          include: {
+            call_schedules: true,
+          },
+        },
       },
     });
 
@@ -30,14 +35,44 @@ const worker = new Worker<CallTaskJobData>(
     }
 
     const { call_campaigns: campaign, phone_numbers: phoneNumber, user_id } = callTask;
+    
+    if (!isValidScheduleRules(campaign.call_schedules.schedule_rules)) {
+      console.error(`[Worker] Invalid schedule associated with campaign ${campaign.id}`);
+      await prisma.$transaction([
+        prisma.call_tasks.update({
+          where: { id: callTaskId },
+          data: {
+            status: 'failed',
+            updated_at: new Date(),
+          },
+        }),
+        prisma.call_campaigns.update({
+          where: { id: campaign.id },
+          data: { failed_tasks: { increment: 1 }, updated_at: new Date() },
+        }),
+      ]);
+      return { status: 'error', reason: 'invalid_schedule_associated_with_campaign' };
+    }
+
     const concurrencyKey = `campaign:${campaign.id}:active_calls`;
 
     try {
       const activeCalls = await redis.incr(concurrencyKey);
       if (activeCalls > campaign.max_concurrent_calls) {
         await redis.decr(concurrencyKey);
-        // recalculate next scheduled_at time and then update call_tasks set scheduled_at = next_scheduled_at where id = callTaskId
+        // recalculate next scheduled_at time and then update call_tasks set 
+        // scheduled_at = next_scheduled_at where id = callTaskId
         // set the task status to 'pending'
+        const newScheduledAt = getNextValidScheduleDate(campaign.call_schedules, new Date());
+        await prisma.call_tasks.update({
+          where: { id: callTaskId },
+          data: {
+            status: 'pending', // Set back to pending for the scheduler to pick up again
+            scheduled_at: newScheduledAt as Date,
+            updated_at: new Date(),
+          },
+        })
+
         return { status: 'error', reason: 'campaign_max_concurrent_calls_reached' };
       }
 
@@ -87,8 +122,25 @@ const worker = new Worker<CallTaskJobData>(
       // Check if we should retry or mark as failed permanently
       if (callTask.retry_count < campaign.max_retries) {
         // Reschedule for a future retry
-        // TODO: Use dedicated function to get next scheduled_at time
-        const newScheduledAt = new Date(Date.now() + campaign.retry_delay_seconds * 1000);
+        const newScheduledAt = getNextValidScheduleDate(campaign.call_schedules, new Date());
+        if (!newScheduledAt) {
+          // mark call as failed permanently
+          await prisma.$transaction([
+            prisma.call_tasks.update({
+              where: { id: callTaskId },
+              data: {
+                status: 'failed',
+                updated_at: new Date(),
+              },
+            }),
+            prisma.call_campaigns.update({
+              where: { id: campaign.id },
+              data: { failed_tasks: { increment: 1 }, updated_at: new Date() },
+            }),
+          ]);
+          return { status: 'error', reason: 'invalid_schedule_associated_with_campaign' };
+        }
+
         await prisma.$transaction([
           prisma.call_tasks.update({
             where: { id: callTaskId },
@@ -106,8 +158,6 @@ const worker = new Worker<CallTaskJobData>(
         ]);
         console.log(`[Worker] Task ${callTaskId} failed, rescheduled for retry at ${newScheduledAt.toISOString()}`);
         return { status: 'error', reason: 'retryable_error' };
-      } else {
-
       }
 
        // All retries exhausted, mark as permanently failed
