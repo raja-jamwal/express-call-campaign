@@ -152,62 +152,6 @@ async function main() {
   }
   console.log(`✅ Created ${callTasks.length} call tasks`);
 
-  // Create Call Logs
-  // console.log('📋 Creating call logs...');
-  // const callLogStatuses: Array<'initiated' | 'in_progress' | 'completed' | 'failed'> = [
-  //   'initiated',
-  //   'in_progress',
-  //   'completed',
-  //   'failed',
-  // ];
-
-  // let callLogsCount = 0;
-  // for (const task of callTasks) {
-  //   // Create logs for completed or failed tasks
-  //   if (task.status === 'completed' || task.status === 'failed') {
-  //     const logsToCreate = faker.number.int({ min: 1, max: task.retry_count + 1 });
-
-  //     for (let i = 0; i < logsToCreate; i++) {
-  //       const phoneNumber = phoneNumbers.find((pn) => pn.id === task.phone_number_id);
-  //       if (!phoneNumber) continue;
-
-  //       const logStatus = faker.helpers.arrayElement(callLogStatuses);
-  //       const startedAt = faker.date.between({
-  //         from: new Date(task.scheduled_at.getTime() - 3600000),
-  //         to: task.scheduled_at,
-  //       });
-  //       const endedAt = logStatus === 'completed' || logStatus === 'failed'
-  //         ? new Date(startedAt.getTime() + faker.number.int({ min: 30000, max: 1800000 })) // 30s to 30min
-  //         : null;
-
-  //       await prisma.call_logs.create({
-  //         data: {
-  //           user_id: task.user_id,
-  //           call_task_id: task.id,
-  //           phone_number_id: task.phone_number_id,
-  //           dialed_number: phoneNumber.number,
-  //           external_call_id: `call_${faker.string.alphanumeric(24)}`,
-  //           status: logStatus,
-  //           failure_reason: logStatus === 'failed'
-  //             ? faker.helpers.arrayElement([
-  //                 'No answer',
-  //                 'Busy',
-  //                 'Invalid number',
-  //                 'Network error',
-  //                 'Call rejected',
-  //                 'Voicemail',
-  //               ])
-  //             : null,
-  //           started_at: startedAt,
-  //           ended_at: endedAt,
-  //         },
-  //       });
-  //       callLogsCount++;
-  //     }
-  //   }
-  // }
-  // console.log(`✅ Created ${callLogsCount} call logs`);
-
   console.log('🎉 Database seeding completed successfully!');
   console.log('\n📊 Summary:');
   console.log(`   - User: ${user.name} (${user.email})`);

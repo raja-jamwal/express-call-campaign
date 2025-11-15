@@ -103,7 +103,8 @@ const worker = new Worker<CallTaskJobData>(
       // Check if we should retry or mark as failed permanently
       if (callTask.retry_count < campaign.max_retries) {
         // Reschedule for a future retry
-        const newScheduledAt = getNextValidScheduleDate(campaign.call_schedules, new Date()) as Date;
+        const retry_after_seconds = campaign.retry_delay_seconds * 1000;
+        const newScheduledAt = new Date(Date.now() + retry_after_seconds * 1000);
         await prisma.$transaction([
           prisma.call_tasks.update({
             where: { id: callTaskId },
