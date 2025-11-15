@@ -5,6 +5,7 @@ import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
 import { ExpressAdapter } from '@bull-board/express';
 import { prisma } from './lib/prisma';
 import { callQueue } from './queues/callQueue';
+import usersController from './controllers/users.controller';
 
 const app = express();
 app.use(express.json());
@@ -31,18 +32,8 @@ app.get('/health', async (_req, res) => {
   }
 });
 
-// Get all users
-app.get('/users', async (_req, res) => {
-  const users = await prisma.users.findMany({
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      created_at: true,
-    },
-  });
-  res.json(users);
-});
+// Mount routers
+app.use('/users', usersController);
 
 // Error handler
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
